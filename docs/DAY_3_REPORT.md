@@ -184,3 +184,4 @@ With listings published and geospatial search operating, **Day 4** focuses on **
 1. **Atomic Concurrency:** Eliminating race conditions using MongoDB's atomic `findOneAndUpdate` so two NGOs clicking "Claim" at the same millisecond can never both win the same food.
 2. **Claim Lifecycle:** Implementing claim, cancel, and pickup/completion transitions.
 3. **Idempotency & State Machine Guards:** Enforcing valid state transitions (`available` $\to$ `claimed` $\to$ `completed` / `cancelled`).
+

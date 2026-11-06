@@ -85,3 +85,4 @@ runExplainLab().catch((err) => {
   console.error('Explain lab error:', err);
   process.exit(1);
 });
+
