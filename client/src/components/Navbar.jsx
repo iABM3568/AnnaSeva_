@@ -1,8 +1,10 @@
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { connected } = useSocket();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -78,6 +80,23 @@ export default function Navbar() {
 
           {user && (
             <div className="flex items-center gap-3 ml-2 pl-3 border-l border-gray-200">
+              {/* Real-time Connection Indicator */}
+              <span
+                title={connected ? 'Real-time updates active' : 'Reconnecting to real-time service...'}
+                className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full transition ${
+                  connected
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-gray-100 text-gray-500 border border-gray-200'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                  }`}
+                />
+                <span>{connected ? 'Live' : 'Offline'}</span>
+              </span>
+
               <div className="flex flex-col text-right">
                 <span className="text-xs font-semibold text-gray-900">{user.name}</span>
                 <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">
