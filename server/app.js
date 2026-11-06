@@ -1,25 +1,42 @@
 import express from 'express';
 import cors from 'cors';
+import authRoutes from './routes/auth.routes.js';
+import { notFound, errorHandler } from './middleware/error.js';
 
 // Create the Express application
 const app = express();
 
-// MIDDLEWARE: functions that run on incoming requests before reaching route handlers.
-// 1. CORS: allow requests from our specified frontend client URL.
+// ---------------------------------------------------------------------------
+// GLOBAL MIDDLEWARE
+// ---------------------------------------------------------------------------
+// 1. CORS: allow requests from specified frontend client origin
 app.use(cors({ origin: process.env.CLIENT_URL }));
 
-// 2. Body Parser: parses incoming JSON payloads and attaches them to req.body.
+// 2. Body Parser: parses incoming JSON bodies and attaches to req.body
 app.use(express.json());
 
-// ROUTE: Health check endpoint
-// Used by developers, uptime monitors, and cloud platforms to verify server responsiveness.
+// ---------------------------------------------------------------------------
+// ROUTES
+// ---------------------------------------------------------------------------
+// Health check endpoint (Preserved from Day 1)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
   });
 });
 
-// Export the configured application for server.js (and future test runners)
-export default app;
+// Authentication and Authorization Routes (Day 2)
+app.use('/api/auth', authRoutes);
 
+// ---------------------------------------------------------------------------
+// ERROR HANDLING MIDDLEWARE
+// ---------------------------------------------------------------------------
+// 404 handler for undefined routes
+app.use(notFound);
+
+// Centralized error handler (must be last middleware)
+app.use(errorHandler);
+
+// Export the configured application for server.js and testing
+export default app;
