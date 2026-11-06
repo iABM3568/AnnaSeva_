@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { protect, restrictTo } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { validateId } from '../middleware/validateId.js';
 import { createListingSchema, nearbySchema } from '../validators/listing.schema.js';
 import {
   createListing,
   getMyListings,
   getNearby,
   getMyClaims,
+  claimListing,
+  completeListing,
+  cancelListing,
 } from '../controllers/listing.controller.js';
 
 const router = Router();
@@ -34,6 +38,22 @@ router.get(
   getMyListings
 );
 
+// PATCH /api/listings/:id/complete — Donor marks claimed food as picked up
+router.patch(
+  '/:id/complete',
+  restrictTo('donor'),
+  validateId,
+  completeListing
+);
+
+// PATCH /api/listings/:id/cancel — Donor cancels an available or claimed listing
+router.patch(
+  '/:id/cancel',
+  restrictTo('donor'),
+  validateId,
+  cancelListing
+);
+
 // ---------------------------------------------------------------------------
 // NGO Routes
 // ---------------------------------------------------------------------------
@@ -52,5 +72,12 @@ router.get(
   getMyClaims
 );
 
-export default router;
+// PATCH /api/listings/:id/claim — Atomically claim an available listing
+router.patch(
+  '/:id/claim',
+  restrictTo('ngo'),
+  validateId,
+  claimListing
+);
 
+export default router;
