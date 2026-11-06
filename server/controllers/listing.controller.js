@@ -1,4 +1,11 @@
 import Listing from '../models/Listing.js';
+import { emitListingNew, emitListingUpdated } from '../sockets/emit.js';
+
+// Helper to populate both donor and claimer on state transitions
+const withParties = (query) =>
+  query
+    .populate('donor', 'name organization pickupAddress')
+    .populate('claimedBy', 'name organization');
 
 // ---------------------------------------------------------------------------
 // Helper: failTransition
@@ -41,6 +48,12 @@ export async function createListing(req, res) {
       coordinates: [longitude, latitude], // Longitude first!
     },
   });
+
+  // Populate donor details for real-time NGO broadcast
+  await listing.populate('donor', 'name organization pickupAddress');
+
+  // Broadcast to all connected NGOs after successful database write
+  emitListingNew(listing);
 
   res.status(201).json({
     status: 'success',
@@ -145,22 +158,24 @@ export async function getMyClaims(req, res) {
 export async function claimListing(req, res) {
   const { id } = req.params;
 
-  const listing = await Listing.findOneAndUpdate(
-    // Filter / Guard: Must match all conditions simultaneously
-    {
-      _id: id,
-      status: 'available',
-      expiresAt: { $gt: new Date() },
-    },
-    // State Mutation: Claim the food and attach claiming NGO
-    {
-      status: 'claimed',
-      claimedBy: req.user.id,
-      claimedAt: new Date(),
-    },
-    // returnDocument: 'after' returns the document in its updated state
-    { returnDocument: 'after' }
-  ).populate('donor', 'name organization pickupAddress');
+  const listing = await withParties(
+    Listing.findOneAndUpdate(
+      // Filter / Guard: Must match all conditions simultaneously
+      {
+        _id: id,
+        status: 'available',
+        expiresAt: { $gt: new Date() },
+      },
+      // State Mutation: Claim the food and attach claiming NGO
+      {
+        status: 'claimed',
+        claimedBy: req.user.id,
+        claimedAt: new Date(),
+      },
+      // returnDocument: 'after' returns the document in its updated state
+      { returnDocument: 'after' }
+    )
+  );
 
   // If no document matched, find out why (404 vs 409)
   if (!listing) {
@@ -170,6 +185,9 @@ export async function claimListing(req, res) {
       'This listing was already claimed or has expired'
     );
   }
+
+  // Real-time broadcast after successful state transition
+  emitListingUpdated(listing);
 
   res.status(200).json({
     status: 'success',
@@ -190,19 +208,21 @@ export async function claimListing(req, res) {
 export async function completeListing(req, res) {
   const { id } = req.params;
 
-  const listing = await Listing.findOneAndUpdate(
-    // Enforce ownership: donor: req.user.id ensures donors can only complete their own listings
-    {
-      _id: id,
-      donor: req.user.id,
-      status: 'claimed',
-    },
-    {
-      status: 'completed',
-      completedAt: new Date(),
-    },
-    { returnDocument: 'after' }
-  ).populate('claimedBy', 'name organization');
+  const listing = await withParties(
+    Listing.findOneAndUpdate(
+      // Enforce ownership: donor: req.user.id ensures donors can only complete their own listings
+      {
+        _id: id,
+        donor: req.user.id,
+        status: 'claimed',
+      },
+      {
+        status: 'completed',
+        completedAt: new Date(),
+      },
+      { returnDocument: 'after' }
+    )
+  );
 
   if (!listing) {
     // Look only among THIS donor's listings to prevent existence leakage (404)
@@ -212,6 +232,9 @@ export async function completeListing(req, res) {
       'Only a claimed listing can be marked as picked up'
     );
   }
+
+  // Real-time broadcast: inform claiming NGO that food was marked completed
+  emitListingUpdated(listing);
 
   res.status(200).json({
     status: 'success',
@@ -232,17 +255,19 @@ export async function completeListing(req, res) {
 export async function cancelListing(req, res) {
   const { id } = req.params;
 
-  const listing = await Listing.findOneAndUpdate(
-    {
-      _id: id,
-      donor: req.user.id,
-      status: { $in: ['available', 'claimed'] },
-    },
-    {
-      status: 'cancelled',
-    },
-    { returnDocument: 'after' }
-  ).populate('claimedBy', 'name organization');
+  const listing = await withParties(
+    Listing.findOneAndUpdate(
+      {
+        _id: id,
+        donor: req.user.id,
+        status: { $in: ['available', 'claimed'] },
+      },
+      {
+        status: 'cancelled',
+      },
+      { returnDocument: 'after' }
+    )
+  );
 
   if (!listing) {
     return failTransition(
@@ -251,6 +276,9 @@ export async function cancelListing(req, res) {
       'This listing can no longer be cancelled'
     );
   }
+
+  // Real-time broadcast: inform NGOs that listing is cancelled
+  emitListingUpdated(listing);
 
   res.status(200).json({
     status: 'success',
