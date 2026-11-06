@@ -42,3 +42,4 @@ export default function useGeolocation() {
 
   return { coords, setCoords, error, loading, locate };
 }
+

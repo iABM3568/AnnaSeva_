@@ -54,3 +54,4 @@ export default function ListingCard({ listing, children }) {
     </article>
   );
 }
+
