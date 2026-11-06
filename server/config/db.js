@@ -14,3 +14,4 @@ export async function connectDB() {
     process.exit(1); // 1 means exit process with failure
   }
 }
+

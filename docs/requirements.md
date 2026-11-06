@@ -78,3 +78,4 @@ Restaurants, caterers, hotels, party halls, and hostel messes frequently finish 
 1. MVP is focused on hyper-local urban food redistribution (5–15 km delivery radius).
 2. Transportation logistics are handled directly by the claiming NGO.
 3. Donors guarantee food quality and declare preparation time truthfully.
+
