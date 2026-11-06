@@ -135,3 +135,32 @@
 | **Atomic `findOneAndUpdate` (ADR 004)** | Eliminates race conditions with zero external locking mechanisms or distributed mutexes. | Direct updates skip Mongoose schema validators (safe here since update fields are server literals). |
 | **Silent 404 on Foreign Resource Updates** | Prevents competitors from confirming whether a private listing exists. | Callers get generic "Not Found" instead of specific "Not Your Listing". |
 | **Development Seeding Utility (`seed.js`)** | Generates realistic, geographically dispersed listings with known demo accounts for testing. | Must be guarded against running on production databases (`_dev` suffix check). |
+
+---
+
+## Day 5: React Frontend, Authentication & First Deployment
+
+### 1. Concepts Learned & Solidified
+- **Single Page Applications (SPAs):** The browser loads `index.html` and bundled JavaScript once. React dynamically swaps page components into the DOM via React Router without triggering full-page browser reloads.
+- **Props vs. State:** Props are immutable inputs passed down from parent components (read-only); State is internal component memory (`useState`) that automatically triggers a re-render when modified.
+- **React Context (`AuthContext`):** Replaces cumbersome multi-level prop drilling with a centralized shared store for `user`, `loading`, `login()`, `register()`, and `logout()`.
+- **Session Persistence Lifecycle:**
+  1. On login/register, the JWT token and safe user object are saved to `localStorage`.
+  2. On page reload, the client initializes with cached credentials so the UI doesn't flicker.
+  3. `useEffect` immediately fires a background verification call to `GET /api/auth/me` using the Axios interceptor.
+  4. If the token is valid, the user state is re-confirmed. If invalid or expired, the session is cleared cleanly and the user is redirected to `/login`.
+- **Axios Interceptors:** A unified middleware pipeline for frontend HTTP calls:
+  - *Request Interceptor:* Automatically attaches `Authorization: Bearer <token>` to every outgoing request.
+  - *Response Interceptor:* Catches `401 Unauthorized` responses from protected endpoints, purges invalid storage, and navigates to `/login`.
+- **CORS & Preflights:** Browsers enforce origin separation. Custom headers (like `Authorization`) trigger an invisible `OPTIONS` preflight request. Express must respond with `Access-Control-Allow-Origin: <exact_client_origin>` and allow `Authorization` headers.
+- **Client Route Protection vs. Backend Authorization:**
+  - `ProtectedRoute` is an ergonomic user-experience layer that prevents blank screens and accidental navigation to unauthorized pages.
+  - Real security strictly resides on the backend via Express `protect` and `restrictTo` middleware.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Deploy a Skeleton Early (ADR 005)** | Surface CORS, HTTPS, routing, and environment variable configuration issues while the codebase is small and manageable. | Requires setting up cloud accounts and dealing with free-tier cold starts early. |
+| **Centralized Axios Interceptor** | Eliminates manual header management across every component and prevents token synchronization bugs. | Global 401 handling requires explicit exceptions for login/register form errors to prevent redirection loops. |
+| **Resilient Dynamic CORS Handler** | Reads `CLIENT_URL` at request time with a fallback to `http://localhost:5173`, avoiding ES module import hoisting timing bugs. | Slightly more code than a static string, but completely immune to startup race conditions. |
+

@@ -87,3 +87,26 @@ await Listing.findOneAndUpdate(
 
 ### Trade-offs Considered
 - **Direct Update Bypasses Schema Validations by Default:** `findOneAndUpdate` does not invoke Mongoose document middleware or schema validators unless `{ runValidators: true }` is supplied. Because all update fields (`status: 'claimed'`, `claimedBy`, `claimedAt`) are server-controlled literals, this trade-off is completely safe.
+
+---
+
+## ADR 005: Deploy a Skeleton Early (Day 5)
+
+### Context & Problem Statement
+In traditional development workflows, teams often delay deployment until the entire application is finished ("Day 10"). However, production environments differ significantly from local developer machines: strict browser CORS policies, HTTPS enforcement, environment variable baking at build time, SPA routing rewrites, and database network firewalls. Should AnnaSeva delay deployment or deploy an early skeleton on Day 5?
+
+### Decision
+Deploy an authenticated baseline skeleton on Day 5:
+- **Backend API:** Render Web Service (Node.js/Express)
+- **Database:** MongoDB Atlas (Dedicated cloud cluster)
+- **Frontend SPA:** Vercel (Vite + React + React Router)
+
+### Rationale
+- **Isolates Infrastructure Bugs Early:** If CORS breaks or React Router throws a 404 on page refresh, the surface area of potential causes is tiny (only login/register routes exist).
+- **Verifies the Full Deployment Pipeline:** Validates automated builds, Git webhooks, environment variable propagation, and database connectivity.
+- **Enables Continuous Delivery:** After Day 5, every subsequent milestone (Day 6 Donor experience, Day 7 NGO claims, Day 8 Real-time websockets) is verified immediately on real mobile phones and browsers simply by pushing to GitHub.
+
+### Trade-offs & Operational Considerations
+- **Render Free Tier Cold Starts:** Inactive instances sleep after 15 minutes of inactivity; the initial request may take up to 50 seconds to boot. (Documented for demo scripts).
+- **Atlas IP Whitelisting:** Render free-tier instances have dynamic egress IPs, necessitating `0.0.0.0/0` (allow from anywhere) in Atlas Network Access. This is mitigated by enforcing strong randomized database passwords, TLS encryption in transit, and least-privilege user roles.
+
