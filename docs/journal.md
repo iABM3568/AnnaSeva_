@@ -164,3 +164,30 @@
 | **Centralized Axios Interceptor** | Eliminates manual header management across every component and prevents token synchronization bugs. | Global 401 handling requires explicit exceptions for login/register form errors to prevent redirection loops. |
 | **Resilient Dynamic CORS Handler** | Reads `CLIENT_URL` at request time with a fallback to `http://localhost:5173`, avoiding ES module import hoisting timing bugs. | Slightly more code than a static string, but completely immune to startup race conditions. |
 
+---
+
+## Day 6: The Donor Experience
+
+### 1. Concepts Learned & Solidified
+- **The Four States Pattern:** Every data-fetching screen must anticipate four distinct states:
+  1. *Loading:* Immediate visual feedback (spinner or skeleton) while network calls are in flight.
+  2. *Error:* Clear description of failure accompanied by an `onRetry` action.
+  3. *Empty:* Welcoming explanation of what's missing paired with a primary call to action (e.g. "Post your first listing").
+  4. *Data:* The populated UI with list elements and interactive action controls.
+- **Stable React Keys:** Using unique entity IDs (`listing._id`) rather than array indices ensures React efficiently reconciles the DOM when items are removed, completed, or rearranged.
+- **Custom Hook Encapsulation (`useGeolocation`):** Abstracted `navigator.geolocation` permissions, timeouts, loading, and error states into a reusable hook that isolates browser-specific APIs from UI presentation.
+- **Date & Timezone Discipline:**
+  - `<input type="datetime-local">` supplies an unzoned local time string.
+  - Convert to standard UTC using `new Date(value).toISOString()` before sending over HTTP.
+  - Store and index UTC in MongoDB.
+  - Rehydrate into user local time using `new Date(utcValue).toLocaleString()` for human display.
+- **Derived State:** Expiry is calculated at render time (`displayStatus`) by comparing `expiresAt` with `Date.now()`. This avoids stale state bugs where a database document still says `available` after its deadline.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Pessimistic UI Updates (ADR 006)** | Guarantees that local UI state never diverges from database reality. | Minor perceived latency (~100ms) while waiting for network response; addressed with button loading states. |
+| **Reusable Primitive Components** | `StatusBadge`, `ListingCard`, `EmptyState`, `Notice`, `ErrorMessage` are created as modular Lego blocks reusable on Day 7. | Requires establishing consistent prop contracts early. |
+| **Manual Coordinate Fallback** | Allows donors on desktop browsers or with denied GPS permissions to enter coordinates manually so they are never blocked from donating food. | Requires client-side coordinate bounds validation (-90 to 90, -180 to 180). |
+
+

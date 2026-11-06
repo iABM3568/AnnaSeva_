@@ -110,3 +110,22 @@ Deploy an authenticated baseline skeleton on Day 5:
 - **Render Free Tier Cold Starts:** Inactive instances sleep after 15 minutes of inactivity; the initial request may take up to 50 seconds to boot. (Documented for demo scripts).
 - **Atlas IP Whitelisting:** Render free-tier instances have dynamic egress IPs, necessitating `0.0.0.0/0` (allow from anywhere) in Atlas Network Access. This is mitigated by enforcing strong randomized database passwords, TLS encryption in transit, and least-privilege user roles.
 
+---
+
+## ADR 006: UI Waits for Server Instead of Guessing Results (Day 6)
+
+### Context & Problem Statement
+When a donor triggers a state transition (e.g. clicking "Mark Picked Up" or "Cancel"), the frontend could optimistically update local component state before the server responds to provide instant UI feedback, or wait for the server's HTTP response before mutating local state (*pessimistic updates*). Which approach best suits AnnaSeva's food lifecycle?
+
+### Decision
+Adopt **pessimistic UI updates** for all listing state transitions. The component disables action buttons, awaits the server response, and replaces the specific listing with the exact document returned by the database.
+
+### Rationale
+- **Zero State Divergence:** In critical food redistribution workflows, showing a listing as "Cancelled" or "Picked Up" when the backend transaction actually failed (e.g., due to an expired deadline or permission conflict) leads to severe real-world confusion.
+- **Single Source of Truth:** The server's database engine governs all lifecycle state machines. The client never guesses or synthesizes document states.
+- **Clean Error Recovery:** If a mutation fails (e.g. `409 Conflict`), the listing card remains in its true active state on screen, and an immediate feedback notice explains the issue without requiring a rollback mechanism.
+
+### Trade-offs Considered
+- **Slight Latency:** The user perceives a brief (~100–200ms) delay while the request completes. This is addressed by showing inline action spinners (`Updating...` / `Cancelling...`) and disabling buttons to prevent duplicate clicks.
+
+
