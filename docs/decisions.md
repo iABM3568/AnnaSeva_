@@ -129,3 +129,34 @@ Adopt **pessimistic UI updates** for all listing state transitions. The componen
 - **Slight Latency:** The user perceives a brief (~100–200ms) delay while the request completes. This is addressed by showing inline action spinners (`Updating...` / `Cancelling...`) and disabling buttons to prevent duplicate clicks.
 
 
+
+---
+
+## ADR 007: NGO Discovery, Client Distance Calculations, and Pre-Claim Privacy Trade-offs (Day 7)
+
+### Context & Problem Statement
+The NGO discovery experience introduces geospatial queries, interactive map visualization with Leaflet, distance sorting, and atomic claim execution under network latency. Several key architectural trade-offs require formalization:
+1. **Distance Computation:** MongoDB's `$near` operator sorts listings by proximity but does not project the distance value in standard query output. Should we switch to a `$geoNear` aggregation pipeline on the backend, or calculate distance on the client using the Haversine formula?
+2. **Coordinate Representation Flip:** MongoDB GeoJSON enforces `[longitude, latitude]`, whereas Leaflet and Google Maps require `[latitude, longitude]`. How do we prevent coordinate flip bugs across map markers, popups, and directions?
+3. **Pre-Claim Address Privacy:** Currently, `GET /api/listings/nearby` returns the complete `pickupAddress`. Should physical addresses be visible prior to claiming, or masked until an NGO commits to collection?
+4. **Stale Asynchronous Responses:** Rapid user interactions (e.g. changing the radius slider from 2 km to 50 km) launch multiple overlapping HTTP requests. An older request arriving after a newer request could overwrite fresh data with stale results.
+
+### Decisions
+1. **Client-Side Distance Calculation via Haversine Formula:**
+   We retain the efficient `$near` index scan on the server and compute human-readable distances ("450 m", "3.2 km") client-side using the Haversine formula in [`client/src/utils/geo.js`](file:///Users/iabm3568/AnnaSeva2/client/src/utils/geo.js).
+2. **Centralized Coordinate Translation (`listingLatLng`):**
+   A single, dedicated utility function performs the `[longitude, latitude]` $\to$ `[latitude, longitude]` swap. No component is permitted to perform inline array indexing for coordinates.
+3. **Incremental Request Counter Guard (`latestRequest = useRef(0)`):**
+   Every geospatial query increments a reference counter. If the received response does not match the latest counter ID, it is discarded immediately.
+4. **Pre-Claim Address Transparency with Planned Masking:**
+   For Day 7 MVP, `pickupAddress` remains visible to verified, authenticated NGOs to allow volunteers to assess pickup feasibility before claiming. In Day 9 (Hardening), we will evaluate masking the street address in `getNearby` (showing only neighborhood/city) and revealing full addresses only upon claim success (`claimListing` and `getMyClaims`).
+
+### Rationale
+- **Simplicity & Performance:** The Haversine formula is computationally negligible for 10–50 listings (< 1 ms in JavaScript). Keeping standard Mongoose `find().populate()` avoids the complexity of writing and maintaining aggregation pipelines (`$geoNear`) across multiple development iterations.
+- **Elimination of Coordinate Swap Bugs:** Having one single helper (`listingLatLng`) guarantees that pins never appear inverted (e.g., in the Indian Ocean instead of Pune).
+- **Rock-Solid Race Protection:** `latestRequest` guarantees that rapid slider adjustments or geolocation retries never produce UI flicker or display stale listing subsets.
+- **Pragmatic Security:** All endpoints require authenticated NGO sessions (`protect` + `restrictTo('ngo')`). Public unauthorized visitors cannot access listings or pickup addresses.
+
+### Trade-offs Considered
+- **Client vs. Server Distance Precision:** Haversine assumes a spherical Earth ($R = 6371\text{ km}$), which differs from WGS84 ellipsoidal distance by < 0.5%. Over local collection distances (2–50 km), this variance is undetectable to users.
+- **Pre-Claim Address Exposure:** While convenient for volunteers, donors in sensitive residential areas might prefer address concealment until claiming. This is logged as a prioritized enhancement for the production hardening phase.

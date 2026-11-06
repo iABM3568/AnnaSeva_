@@ -191,3 +191,29 @@
 | **Manual Coordinate Fallback** | Allows donors on desktop browsers or with denied GPS permissions to enter coordinates manually so they are never blocked from donating food. | Requires client-side coordinate bounds validation (-90 to 90, -180 to 180). |
 
 
+
+---
+
+## Day 7: The NGO Experience (Map, Geolocation & Atomic Claims)
+
+### 1. Concepts Learned & Solidified
+- **Web Map Architecture & Tiles:** Web maps are composed of 256x256 pixel raster tile images fetched dynamically from a tile server (OpenStreetMap). Leaflet positions and transforms these tiles as the user pans and zooms. `react-leaflet` bridges Leaflet's imperative DOM manipulations into declarative React component lifecycles.
+- **The Classic Coordinate Flip (#1 Web Mapping Trap):**
+  - **MongoDB GeoJSON Standard:** Formatted as `[longitude, latitude]` (`[X, Y]` coordinate plane).
+  - **Leaflet & Mapping APIs:** Formatted as `[latitude, longitude]` (`[Y, X]` navigational order).
+  - *Golden Rule:* We centralized coordinate translation into a single utility helper (`utils/geo.js:listingLatLng`), strictly forbidding scattered inline array inversions.
+- **Vite Asset Hashing & Leaflet Markers:** Vite hashes image filenames in production builds (e.g. `marker-icon-CrXuemCf.png`). Leaflet's default internal loader searches for static relative paths, causing missing marker icons. We resolved this in `src/leafletSetup.js` by explicitly importing Leaflet's icon assets and applying `L.Icon.Default.mergeOptions`.
+- **Haversine Formula for Spherical Distance:** Because the Earth is an oblate spheroid, simple Cartesian Euclidean geometry ($a^2 + b^2 = c^2$) fails over geographic spans. The Haversine formula uses spherical trigonometry to compute precise great-circle distances directly in the browser.
+- **Stale Async Responses & Race Conditions:** When a user rapidly toggles search radius (2 km $\to$ 5 km $\to$ 10 km), three asynchronous network requests run concurrently. If the 2 km query resolves *after* the 10 km query, the UI would erroneously display 2 km listings. We mitigated this by maintaining an incremental request ID counter (`latestRequest = useRef(0)`). Responses whose ID does not match the active counter are dropped immediately.
+- **Pessimistic Claiming & Graceful 409 Conflict Recovery:** Claiming a donation waits for server confirmation. If another NGO claims the food first, the backend returns an HTTP 409 Conflict. Rather than crashing or showing a generic error screen, the UI treats this as an expected real-world competition outcome: it dismisses the card gracefully and displays an informative notification.
+- **Tab Sandboxing & Navigation Security:** Direction links open Google Maps in a new browser tab with `target="_blank" rel="noopener noreferrer"`. This prevents the target page from obtaining a reference to `window.opener`, protecting against reverse tabnabbing and phishing attacks.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Client-Side Distance Calculation (ADR 007)** | MongoDB's `$near` sorts listings by proximity; client computes human-readable distance labels ("450 m", "3.2 km") via Haversine. | Slight trigonometric CPU computation on client, but completely unnoticeable for 10–50 items (< 1ms). |
+| **Request Counter Guard (`latestRequest`)** | Eliminates stale response overwrites during rapid radius filter changes. | Does not abort TCP socket in flight, but cleanly ignores obsolete data payloads. |
+| **Interactive Map Center Selection (`ClickToPick`)** | Allows volunteers to click anywhere on the map to search a different district even if browser GPS is blocked or denied. | Requires Leaflet event handlers wired through React context child components. |
+| **Address Privacy Staged Rollout** | Transparent pre-claim pickup addresses retained for Day 7 MVP; address masking scheduled for Day 9 hardening. | Authenticated NGOs can see exact addresses before claiming; acceptable in trusted partner network. |
+
+---
