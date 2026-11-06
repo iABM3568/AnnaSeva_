@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import DonorDashboard from './pages/DonorDashboard';
 import NewListing from './pages/NewListing';
 import NgoNearby from './pages/NgoNearby';
+import MyClaims from './pages/MyClaims';
 import NotFound from './pages/NotFound';
 
 export default function App() {
@@ -41,6 +42,14 @@ export default function App() {
             element={
               <ProtectedRoute role="ngo">
                 <NgoNearby />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ngo/claims"
+            element={
+              <ProtectedRoute role="ngo">
+                <MyClaims />
               </ProtectedRoute>
             }
           />

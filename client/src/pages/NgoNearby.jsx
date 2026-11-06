@@ -1,35 +1,249 @@
-import { useAuth } from '../context/AuthContext';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import api from '../services/api';
+import useGeolocation from '../hooks/useGeolocation';
+import { getErrorMessage } from '../utils/errors';
+import { distanceKm, formatDistance, listingLatLng } from '../utils/geo';
+import ListingMap from '../components/ListingMap';
+import ListingCard from '../components/ListingCard';
+import Loader from '../components/Loader';
+import ErrorMessage from '../components/ErrorMessage';
+import EmptyState from '../components/EmptyState';
+import Notice from '../components/Notice';
 
 export default function NgoNearby() {
-  const { user } = useAuth();
+  const { coords: gpsCoords, error: geoError, loading: geoLoading, locate } = useGeolocation();
+
+  const [center, setCenter] = useState(null); // Search center coordinates: { lat, lng }
+  const [radiusKm, setRadiusKm] = useState(10);
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [claimingId, setClaimingId] = useState(null); // ID of listing currently undergoing claim operation
+
+  // Whenever GPS detects a physical location, set it as the active search center
+  useEffect(() => {
+    if (gpsCoords) {
+      setCenter(gpsCoords);
+    }
+  }, [gpsCoords]);
+
+  // Request GPS position automatically when mounting the page
+  useEffect(() => {
+    locate();
+  }, [locate]);
+
+  // Guard against STALE async responses:
+  // If the volunteer changes radius 2km -> 50km rapidly, two requests are in-flight.
+  // We number each request and ignore responses that do not match the latest ID.
+  const latestRequest = useRef(0);
+
+  const loadNearby = useCallback(async () => {
+    if (!center) return;
+    const requestId = ++latestRequest.current;
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data } = await api.get('/listings/nearby', {
+        params: {
+          lat: center.lat,
+          lng: center.lng,
+          radiusKm,
+        },
+      });
+
+      // Discard this response if a newer request was dispatched while this was in flight
+      if (requestId !== latestRequest.current) return;
+
+      setListings(data.listings || []);
+      setLoading(false);
+    } catch (err) {
+      if (requestId !== latestRequest.current) return;
+      setError(getErrorMessage(err));
+      setLoading(false);
+    }
+  }, [center, radiusKm]);
+
+  useEffect(() => {
+    loadNearby();
+  }, [loadNearby]);
+
+  /**
+   * Atomic claim handler (ADR 006 Pessimistic UI Updates)
+   *
+   * Awaits server confirmation before updating state:
+   * - 200 OK: Volunteer wins the claim -> Remove card from available list and show directions notice.
+   * - 409 Conflict: Another NGO claimed first or food expired -> Remove card and show friendly notice.
+   */
+  async function handleClaim(listing) {
+    const confirmed = window.confirm(
+      `Claim "${listing.title}"? Your organization is committing to collect this food.`
+    );
+    if (!confirmed) return;
+
+    setClaimingId(listing._id);
+    try {
+      const { data } = await api.patch(`/listings/${listing._id}/claim`);
+      // Claim succeeded
+      setListings((prev) => prev.filter((item) => item._id !== listing._id));
+      setNotice(
+        `Successfully claimed "${data.listing.title}". Pickup: ${data.listing.pickupAddress}. View it anytime under "My claims".`
+      );
+    } catch (err) {
+      setNotice(getErrorMessage(err));
+      // HTTP 409 Conflict: Another NGO won or the listing expired. Remove it from view.
+      if (err.response?.status === 409) {
+        setListings((prev) => prev.filter((item) => item._id !== listing._id));
+      }
+    } finally {
+      setClaimingId(null);
+    }
+  }
+
+  // Quick fallback if GPS is unavailable/blocked on desktop
+  function handleUseDefaultCenter() {
+    setCenter({ lat: 18.5204, lng: 73.8567 }); // Pune default
+  }
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between pb-6 border-b border-gray-100">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">NGO Food Discovery Portal</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Welcome, <span className="font-semibold text-emerald-700">{user?.name}</span> ({user?.role})
-            </p>
-          </div>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            Verified NGO
-          </span>
+    <main className="mx-auto max-w-5xl px-4 py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-gray-200">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Food Near You</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Discover and claim surplus food donations in your collection radius.
+          </p>
         </div>
 
-        <div className="mt-6 bg-blue-50 rounded-lg p-6 border border-blue-100">
-          <h2 className="text-lg font-semibold text-blue-900">Nearby Surplus Food Claims</h2>
-          <p className="mt-2 text-sm text-blue-800">
-            Your NGO portal is authenticated and protected. Interactive geospatial map discovery and atomic one-click claiming will be connected in Day 7.
-          </p>
-          <div className="mt-4 flex gap-3 text-xs text-blue-700">
-            <span>Email: <strong>{user?.email}</strong></span>
-            {user?.organization && <span>• Organization: <strong>{user?.organization}</strong></span>}
-          </div>
+        {/* Filter and Location Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={locate}
+            disabled={geoLoading}
+            className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition cursor-pointer disabled:opacity-50"
+          >
+            {geoLoading ? 'Detecting GPS...' : '📍 Use My Location'}
+          </button>
+
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <span>Radius:</span>
+            <select
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(Number(e.target.value))}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+            >
+              {[2, 5, 10, 25, 50].map((km) => (
+                <option key={km} value={km}>
+                  {km} km
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
+
+      {geoError && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center justify-between">
+          <span>⚠️ {geoError} You can click anywhere on the map or use a default location.</span>
+          {!center && (
+            <button
+              onClick={handleUseDefaultCenter}
+              className="ml-3 text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold px-2.5 py-1 rounded transition"
+            >
+              Set Pune (18.52, 73.85)
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="mt-4">
+        <Notice message={notice} onClose={() => setNotice('')} />
+      </div>
+
+      {/* Starting point required */}
+      {!center ? (
+        <div className="mt-6">
+          <EmptyState
+            title="We need a starting location"
+            hint="Allow browser geolocation or click below to explore surplus donations in Pune."
+          >
+            <button
+              onClick={handleUseDefaultCenter}
+              className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition"
+            >
+              Explore Pune Region
+            </button>
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="mt-6 space-y-6">
+          {/* Interactive Map */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Geospatial Discovery Map
+              </span>
+              <span className="text-xs text-gray-500">
+                Tip: Click anywhere on the map to re-center search
+              </span>
+            </div>
+            <ListingMap
+              center={center}
+              radiusKm={radiusKm}
+              listings={listings}
+              onPick={setCenter}
+            />
+          </div>
+
+          {/* Listings List Area */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">
+                Available Donations ({listings.length})
+              </h2>
+              <span className="text-xs text-gray-500">
+                Sorted by proximity • Showing within {radiusKm} km
+              </span>
+            </div>
+
+            {loading && <Loader text="Searching nearby listings..." />}
+            {error && <ErrorMessage message={error} onRetry={loadNearby} />}
+
+            {!loading && !error && listings.length === 0 && (
+              <EmptyState
+                title="No food available in this area right now"
+                hint="Try expanding the search radius or clicking another location on the map. New donations will appear here."
+              />
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {listings.map((listing) => {
+                const km = distanceKm(center.lat, center.lng, ...listingLatLng(listing));
+                const isClaiming = claimingId === listing._id;
+
+                return (
+                  <ListingCard key={listing._id} listing={listing}>
+                    <div className="flex items-center justify-between w-full pt-1">
+                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+                        📍 {formatDistance(km)} away
+                      </span>
+
+                      <button
+                        onClick={() => handleClaim(listing)}
+                        disabled={isClaiming}
+                        className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isClaiming ? 'Claiming...' : 'Claim Food'}
+                      </button>
+                    </div>
+                  </ListingCard>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
-
