@@ -243,3 +243,32 @@
 | **Navbar Live / Offline Indicator** | Gives users immediate visual feedback regarding their real-time connection status. | Requires tracking socket connection state in a centralized `SocketContext`. |
 
 ---
+
+---
+
+## Day 9: Hardening, Polish and Buffer
+
+### 1. Concepts Learned & Solidified
+- **Never Trust the Client:** Client-side form constraints (disabling buttons, HTML5 `required`) are user-experience conveniences, not security gates. Every constraint (quantities, dates, roles, ownership) must be strictly validated by the backend.
+- **Middleware Ordering as Application Behavior:** In Express, middleware executes in the exact order declared:
+  - `trust proxy` must precede rate limiting so `req.ip` reflects the real client.
+  - `helmet` and `cors` must precede routes so headers attach to every response.
+  - Body parsers must enforce size limits before routing.
+  - `GET /api/health` must precede rate limiters so monitoring probes never get throttled.
+- **Reverse Proxy Topology & `trust proxy`:** Render forwards incoming requests through an edge proxy. Without `app.set('trust proxy', 1)`, Express assumes the request originated from the proxy's IP, collapsing all users into a single shared rate-limit bucket.
+- **Two-Tiered Rate Limiting:**
+  - *General API:* High limit (1000 req/15 min) to prevent denial-of-service and runaway loops.
+  - *Authentication:* Tight limit (20 failed req/15 min) with `skipSuccessfulRequests: true` to prevent credential stuffing without punishing valid users.
+- **MongoDB Aggregation as a Database-Level Pivot Table:** Instead of querying all completed listings into Node.js memory and iterating with `reduce()`, `$match` and `$group` compute the sums (`$sum: '$quantity'`) directly inside the database engine.
+- **Automated Testing with Node's Native Runner (`node:test`):** Node 18+ provides built-in testing without Jest or Mocha. We structured 23 pure in-memory and HTTP integration tests running in < 500ms.
+- **Keyboard Accessibility & Focus Indicators:** Added `:focus-visible` outlines so users navigating via Tab, Shift+Tab, and Enter can visually track interactive elements.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Two-Tiered Rate Limiting (ADR 009)** | Blocks brute-force login attacks while keeping normal browsing smooth. | In-memory store resets on server restart; shared store (Redis) required for multi-server clusters. |
+| **10 KB Payload Size Limit** | Prevents memory allocation denial-of-service from massive JSON payloads. | Rejects files or bulk uploads, which is appropriate since AnnaSeva does not accept image uploads in MVP. |
+| **Live Database Aggregation for Stats** | Always reflects real-time rescued meals without background cron synchronizers. | Executes one aggregation per visitor; can be cached with a 30s TTL under high traffic. |
+| **Visible Keyboard Focus Styling** | Meets WCAG AA accessibility standards for non-mouse users. | Adds visible outlines on focused controls. |
+
+---

@@ -202,3 +202,37 @@ Adopt **Socket.IO** with **JWT Handshake Authentication** and **Room Multiplexin
 
 ### Future Multi-Server Scaling (The Redis Adapter)
 Currently, AnnaSeva runs on a single server instance. When scaling horizontally across multiple Node.js processes or server instances, an event emitted on Server A does not reach users connected to Server B. The standard solution is the **Socket.IO Redis Streams / Pub-Sub Adapter**, where server instances broadcast events to a central Redis channel that fans out messages to all cluster nodes, coupled with sticky sessions on the load balancer for polling fallbacks. This is documented for future scaling and is not required for the current single-instance deployment.
+
+---
+
+## ADR 009: API Hardening, Rate Limiting, Trust Proxy & Impact Statistics (Day 9)
+
+### Context & Problem Statement
+As AnnaSeva moves toward production and public demo readiness, the application surface area must be hardened against common web vulnerabilities (OWASP Top 10):
+1. **Unprotected HTTP Headers:** Default Express configurations emit `X-Powered-By: Express` and omit critical browser safety directives.
+2. **Brute-Force & Denial of Service Attacks:** Public endpoints (`POST /api/auth/login`, `POST /api/auth/register`) can be overwhelmed by credential-stuffing bots.
+3. **Reverse Proxy IP Masking:** Hosted deployments on cloud platforms like Render route inbound traffic through proxy load balancers. Without explicit proxy trust configuration, all visitors appear to share the proxy's IP address.
+4. **Oversized Request Payloads:** Clients could transmit megabytes of JSON, exhausting server memory.
+5. **Impact Reporting:** Platform-wide metrics must be calculated without compromising donor privacy or introducing heavy server overhead.
+
+### Decisions
+1. **Security Headers via Helmet:**
+   `helmet()` is applied globally at the top of the middleware stack. It injects defensive headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`) and strips `X-Powered-By`.
+2. **Two-Tiered Rate Limiting (`express-rate-limit`):**
+   - *General API Limiter (`apiLimiter`):* 1000 requests per 15 minutes per IP (configurable via `RATE_LIMIT_MAX`).
+   - *Authentication Limiter (`authLimiter`):* 20 failed login/registration attempts per 15 minutes per IP (`skipSuccessfulRequests: true`).
+3. **Payload Clamping (10 KB Limit):**
+   `express.json({ limit: '10kb' })` replaces unbounded body parsing, immediately returning HTTP 413 for oversized payloads.
+4. **Explicit Trust Proxy Configuration (`app.set('trust proxy', 1)`):**
+   Instructs Express to inspect the `X-Forwarded-For` header for the true client IP from Render's edge proxy.
+5. **Live Database Aggregation for Statistics:**
+   `GET /api/stats` runs an efficient pipeline (`$match: { status: 'completed' }` $\to$ `$group: { _id: null, mealsRescued: { $sum: '$quantity' }, pickups: { $sum: 1 } }`).
+
+### Rationale
+- **Targeted Defense:** Stricter limits on failed authentication prevent dictionary attacks while allowing legitimate users to make standard API calls unhindered.
+- **Memory-Based Rate Limiting:** Storing counters in memory introduces zero infrastructure dependencies (no Redis required for single-node MVP) while effectively mitigating runaway client loops.
+- **Accurate Aggregation:** Running `$group` in MongoDB computes totals directly on disk rather than pulling thousands of documents into Node memory.
+
+### Trade-offs Considered
+- **In-Memory Rate Limiting:** Counters reset if the server restarts, and counters are not shared across multi-server horizontal clusters (documented in `docs/scaling-notes.md`).
+- **`localStorage` vs. `httpOnly` Cookies:** `localStorage` remains in place for development portability and clean Bearer authorization. Mitigated by strict React input escaping (no `dangerouslySetInnerHTML`) and strict CORS controls.
