@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
+import listingRoutes from './routes/listing.routes.js';
 import { notFound, errorHandler } from './middleware/error.js';
 
 // Create the Express application
@@ -28,6 +29,9 @@ app.get('/api/health', (req, res) => {
 
 // Authentication and Authorization Routes (Day 2)
 app.use('/api/auth', authRoutes);
+
+// Food Listings and Geospatial Routes (Day 3)
+app.use('/api/listings', listingRoutes);
 
 // ---------------------------------------------------------------------------
 // ERROR HANDLING MIDDLEWARE
