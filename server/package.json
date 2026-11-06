@@ -1,0 +1,25 @@
+{
+  "name": "annaseva-server",
+  "version": "1.0.0",
+  "description": "Backend API for AnnaSeva surplus food redistribution platform",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "food-redistribution",
+    "express",
+    "mongodb",
+    "mern"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "mongoose": "^9.12.0"
+  }
+}
