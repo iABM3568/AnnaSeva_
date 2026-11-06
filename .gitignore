@@ -1,0 +1,18 @@
+# Dependencies: huge, and recreated by "npm install"
+node_modules/
+
+# Secrets and local config: NEVER commit these
+.env
+.env.*
+# ...but DO commit the example file (it holds fake values). The "!" means "except".
+!.env.example
+
+# Build output: generated, not written by you
+dist/
+build/
+
+# Operating system and editor clutter
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
