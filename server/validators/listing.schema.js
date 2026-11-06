@@ -131,3 +131,4 @@ export const nearbySchema = z.object({
       .default(10)
   ),
 });
+

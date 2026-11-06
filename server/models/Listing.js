@@ -137,3 +137,4 @@ listingSchema.index({ claimedBy: 1, claimedAt: -1 });
 const Listing = mongoose.model('Listing', listingSchema);
 
 export default Listing;
+
