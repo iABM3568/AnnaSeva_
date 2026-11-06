@@ -1,3 +1,8 @@
 /* This single line loads all of Tailwind's utility classes. */
 @import "tailwindcss";
 
+/* Visible keyboard focus everywhere for WCAG accessibility */
+:focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 2px;
+}
