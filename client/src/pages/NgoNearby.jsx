@@ -9,6 +9,7 @@ import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
 import EmptyState from '../components/EmptyState';
 import Notice from '../components/Notice';
+import { useSocket } from '../context/SocketContext';
 
 export default function NgoNearby() {
   const { coords: gpsCoords, error: geoError, loading: geoLoading, locate } = useGeolocation();
@@ -68,6 +69,49 @@ export default function NgoNearby() {
   useEffect(() => {
     loadNearby();
   }, [loadNearby]);
+
+  // ---------------------------------------------------------------------------
+  // REAL-TIME UPDATES (Socket.IO)
+  // ---------------------------------------------------------------------------
+  // Subscribes to live server events:
+  // - listing:new: New food donation posted -> Prepend to list if within radius
+  // - listing:updated: Food claimed/cancelled -> Remove from available view
+  // - reconnect: Re-fetch entire list from API to catch missed events
+  // ---------------------------------------------------------------------------
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket || !center) return;
+
+    function handleNew(listing) {
+      // Proximity check: Only display if within this NGO's active search radius
+      const km = distanceKm(center.lat, center.lng, ...listingLatLng(listing));
+      if (km > radiusKm) return;
+
+      setListings((previous) =>
+        previous.some((l) => l._id === listing._id) ? previous : [listing, ...previous]
+      );
+      setNotice(`New food donation nearby: "${listing.title}" (${listing.quantity} portions)`);
+    }
+
+    function handleUpdated(listing) {
+      // If the listing was claimed, completed or cancelled, it is no longer available to discover
+      if (listing.status !== 'available') {
+        setListings((previous) => previous.filter((l) => l._id !== listing._id));
+      }
+    }
+
+    socket.on('listing:new', handleNew);
+    socket.on('listing:updated', handleUpdated);
+    socket.io.on('reconnect', loadNearby);
+
+    // CLEANUP: Unbind listeners on unmount or dependency update to avoid memory leaks
+    return () => {
+      socket.off('listing:new', handleNew);
+      socket.off('listing:updated', handleUpdated);
+      socket.io.off('reconnect', loadNearby);
+    };
+  }, [socket, center, radiusKm, loadNearby]);
 
   /**
    * Atomic claim handler (ADR 006 Pessimistic UI Updates)

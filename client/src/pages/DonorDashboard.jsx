@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import api from '../services/api';
 import { getErrorMessage } from '../utils/errors';
@@ -8,6 +8,7 @@ import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
 import EmptyState from '../components/EmptyState';
 import Notice from '../components/Notice';
+import { useSocket } from '../context/SocketContext';
 
 export default function DonorDashboard() {
   const [listings, setListings] = useState([]);
@@ -16,7 +17,9 @@ export default function DonorDashboard() {
   const [notice, setNotice] = useState('');
   const [actionInProgress, setActionInProgress] = useState(null);
 
-  async function loadListings() {
+  const { socket } = useSocket();
+
+  const loadListings = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -29,11 +32,36 @@ export default function DonorDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadListings();
-  }, []);
+  }, [loadListings]);
+
+  // Real-time listener for status changes (e.g. NGO claims donation)
+  useEffect(() => {
+    if (!socket) return;
+
+    function handleUpdated(listing) {
+      // Update matching listing in state
+      setListings((previous) =>
+        previous.map((l) => (l._id === listing._id ? listing : l))
+      );
+      if (listing.status === 'claimed') {
+        const claimerName =
+          listing.claimedBy?.organization || listing.claimedBy?.name || 'An NGO';
+        setNotice(`🤝 ${claimerName} claimed "${listing.title}"! Please prepare for pickup.`);
+      }
+    }
+
+    socket.on('listing:updated', handleUpdated);
+    socket.io.on('reconnect', loadListings);
+
+    return () => {
+      socket.off('listing:updated', handleUpdated);
+      socket.io.off('reconnect', loadListings);
+    };
+  }, [socket, loadListings]);
 
   // Action is 'complete' or 'cancel'. The server evaluates whether the transition is allowed.
   async function handleAction(id, action) {

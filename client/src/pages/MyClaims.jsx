@@ -6,6 +6,7 @@ import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
 import EmptyState from '../components/EmptyState';
 import { Link } from 'react-router';
+import { useSocket } from '../context/SocketContext';
 
 export default function MyClaims() {
   const [listings, setListings] = useState([]);
@@ -28,6 +29,27 @@ export default function MyClaims() {
   useEffect(() => {
     loadClaims();
   }, [loadClaims]);
+
+  // Real-time listener for updates to claimed donations (e.g. marked completed by donor)
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    function handleUpdated(listing) {
+      setListings((previous) =>
+        previous.map((l) => (l._id === listing._id ? listing : l))
+      );
+    }
+
+    socket.on('listing:updated', handleUpdated);
+    socket.io.on('reconnect', loadClaims);
+
+    return () => {
+      socket.off('listing:updated', handleUpdated);
+      socket.io.off('reconnect', loadClaims);
+    };
+  }, [socket, loadClaims]);
 
   if (loading) return <Loader text="Loading your claimed donations..." />;
   if (error) {
@@ -127,3 +149,4 @@ export default function MyClaims() {
     </main>
   );
 }
+
