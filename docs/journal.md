@@ -272,3 +272,44 @@
 | **Visible Keyboard Focus Styling** | Meets WCAG AA accessibility standards for non-mouse users. | Adds visible outlines on focused controls. |
 
 ---
+
+## Day 10: Retrospective, Presentation & Final Milestone
+
+### 1. Answers to Retrospective Questions
+
+#### Q1: What was the hardest problem?
+The hardest problem was **concurrency control during atomic food claiming**. Traditional web development tutorials teach the pattern of fetching a document, checking its status in JavaScript, modifying its properties, and calling `.save()`. Under concurrent execution (e.g., two volunteers tapping "Claim" within milliseconds), this "read-then-write" approach inevitably fails because both requests read `status: 'available'` before either has written `status: 'claimed'`. Pushing synchronization into MongoDB's atomic `findOneAndUpdate({ _id, status: 'available' })` was the breakthrough: it guaranteed that the condition evaluation and state mutation occurred as one indivisible operation protected by MongoDB's document-level locks.
+
+#### Q2: What surprised me?
+What surprised me most was **how much architectural behavior is determined by middleware ordering in Express**. Simply moving `GET /api/health` before `apiLimiter` prevented cloud uptime monitors from exhausting rate limits. Similarly, moving `app.set('trust proxy', 1)` before rate limiting completely changed whether `req.ip` resolved the cloud load balancer's internal router or the user's actual browser. Security and stability in Express are largely a function of pipeline topology.
+
+#### Q3: Which concepts can I explain confidently?
+- The anatomy of JWT stateless authentication and how digital signatures prevent tampering.
+- How MongoDB `2dsphere` indexes work with spherical geometry and why coordinate order differs between GeoJSON `[lng, lat]` and Leaflet `[lat, lng]`.
+- Concurrency race conditions and why atomic database operations are necessary.
+- WebSocket lifecycle, room multiplexing, and why the database must remain the single source of truth rather than socket event streams.
+- Defensive API security: Helmet headers, payload bounds, and proxy-aware rate limiting.
+
+#### Q4: Which concepts remain unclear or need deeper study?
+- **Horizontal WebSocket Scaling:** How to orchestrate sticky sessions and Redis Pub/Sub adapters across multiple containerized Node.js processes running in Kubernetes or AWS ECS.
+- **Advanced Database Sharding:** How MongoDB distributes geospatial `2dsphere` indexes across geographically distributed shards without suffering cross-shard scatter-gather query latency.
+
+#### Q5: What would I do differently if I started again?
+I would introduce **TypeScript** from Day 1. While Zod schemas provided excellent runtime validation at the API boundary, having static type definitions shared between client and server would have caught coordinate format flips (`[lat, lng]` vs `[lng, lat]`) at compile-time rather than during manual map testing.
+
+#### Q6: What did I learn about full-stack development?
+Full-stack development is not about writing frontend buttons and backend routes in isolation; it is about **designing resilient contracts between layers**. Data minimization, clean loading/empty/error states, idempotent mutations, and graceful reconnection handling are what elevate a simple coding exercise into a production-grade software product.
+
+#### Q7: How did AI help, and where was its output incorrect?
+AI acted as an outstanding architectural mentor and rubber-duck partner—helping brainstorm edge cases, explain KaTeX KaTeX KaTeX/Spherical math formulas, and design concurrency stress tests. However, AI often hallucinated outdated syntax (such as deprecated Express response patterns or obsolete React Router v5 methods). I learned to treat AI output as a draft: always cross-referencing installed package documentation, reading actual error logs, and never accepting code I could not explain line-by-line.
+
+#### Q8: What should I learn next?
+Based on my experience building AnnaSeva, my prioritized technical learning roadmap is:
+1. **TypeScript:** Migrating MERN architectures to full end-to-end type safety.
+2. **End-to-End Testing (Playwright / Cypress):** Automated browser testing simulating multi-user donor/NGO claim flows.
+3. **CI/CD Automation (GitHub Actions):** Automated linting, test runners, and zero-downtime deployment pipelines.
+4. **Redis Caching & Sockets:** Distributed caching for hot reads (stats) and the Socket.IO Redis adapter for horizontal scaling.
+5. **Progressive Web App (PWA):** Service workers and offline caching for field volunteers in low-connectivity areas.
+
+---
+
