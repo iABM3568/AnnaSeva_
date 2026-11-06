@@ -217,3 +217,29 @@
 | **Address Privacy Staged Rollout** | Transparent pre-claim pickup addresses retained for Day 7 MVP; address masking scheduled for Day 9 hardening. | Authenticated NGOs can see exact addresses before claiming; acceptable in trusted partner network. |
 
 ---
+
+---
+
+## Day 8: Real-Time Updates (Socket.IO, Rooms & Security)
+
+### 1. Concepts Learned & Solidified
+- **The Limit of Request-Response HTTP:** Traditional HTTP requires the client to request data before the server can reply. In time-critical food redistribution, WebSockets invert this paradigm: the server can push updates the millisecond a donation is posted or claimed.
+- **WebSocket Protocol vs. HTTP:** WebSockets initiate via an HTTP `Upgrade` handshake and switch to a persistent, bidirectional, full-duplex TCP stream with a 2-byte framing overhead instead of kilobyte-heavy HTTP headers.
+- **Socket.IO Architecture & Transports:** Socket.IO starts with HTTP long-polling and automatically upgrades to WebSocket. It adds essential production features missing from raw WebSockets: heartbeat ping/pong, automatic reconnection, and rooms.
+- **Handshake Authentication Middleware:** Because a WebSocket connection is a long-lived stateful channel, it requires the same security perimeter as REST routes. We pass the JWT in `socket.handshake.auth.token`, verify it against `JWT_SECRET`, and reject unauthorized connections before they join any rooms.
+- **Room Multiplexing:**
+  - `ngos`: Public broadcast room for all verified NGOs. Used for `listing:new` and public `listing:updated` broadcasts.
+  - `user:<id>`: Targeted private room for each user. Enables alerting a specific donor when their food is claimed, even if the donor has three browser tabs open.
+- **Data Minimization in Broadcasts:** When food is claimed, non-winning NGOs only need to know that the food is no longer available. Exposing the winning NGO's name and email to all competitors violates data privacy. We sanitized broadcasts to `ngos` by stripping `claimedBy`, reserving the full document for the donor and winning NGO.
+- **`useEffect` Cleanup Discipline:** Every `socket.on(event, handler)` in React must have an exact matching `socket.off(event, handler)` in the effect cleanup return function. Without this, navigating between pages accumulates duplicate event handlers, causing multiple duplicate notices for a single event.
+- **Database as Source of Truth & Reconnection Recovery:** Socket events are ephemeral: if a volunteer enters an elevator or underground garage, events fired during the disconnection are lost. When Socket.IO fires `reconnect`, the client triggers an authoritative REST API reload to recover true state.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Socket.IO over Polling (ADR 008)** | Sub-second latency (< 100ms) with minimal idle network overhead; provides built-in room multiplexing. | Requires separate WebSocket CORS configuration and `socket.io-client` on the frontend. |
+| **Emit After Database Write** | Sockets never announce an action before the database confirms success. | Minor execution delay (a few ms) until DB write completes, preventing false-positive notifications. |
+| **Sanitized Broadcasts (`except`)** | Protects NGO privacy by omitting `claimedBy` from general NGO broadcasts. | Requires dual-path emission logic in `server/sockets/emit.js`. |
+| **Navbar Live / Offline Indicator** | Gives users immediate visual feedback regarding their real-time connection status. | Requires tracking socket connection state in a centralized `SocketContext`. |
+
+---

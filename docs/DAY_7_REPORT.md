@@ -192,3 +192,4 @@ When speaking to a technical interviewer or mentor, explain Day 7 as follows:
 
 5. **Why do we use pessimistic updates for food claiming?**
    > *"Food donation is competitive. If five NGOs tap 'Claim' on the same batch of food, four will be rejected by MongoDB's atomic `findOneAndUpdate` filter. If our React UI optimistically pretended we won before asking the server, the volunteer might start driving to a donor only to find the food was given to another charity. We wait for the server's HTTP 200 confirmation, and if an HTTP 409 returns, we gracefully explain that another NGO claimed it first and remove the card."*
+

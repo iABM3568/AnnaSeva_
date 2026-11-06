@@ -160,3 +160,45 @@ The NGO discovery experience introduces geospatial queries, interactive map visu
 ### Trade-offs Considered
 - **Client vs. Server Distance Precision:** Haversine assumes a spherical Earth ($R = 6371\text{ km}$), which differs from WGS84 ellipsoidal distance by < 0.5%. Over local collection distances (2–50 km), this variance is undetectable to users.
 - **Pre-Claim Address Exposure:** While convenient for volunteers, donors in sensitive residential areas might prefer address concealment until claiming. This is logged as a prioritized enhancement for the production hardening phase.
+
+---
+
+## ADR 008: Authenticated Real-Time Updates via Socket.IO (Day 8)
+
+### Context & Problem Statement
+Prior to Day 8, AnnaSeva operated purely on a request-response HTTP paradigm. When a donor posted surplus food, nearby NGOs could only see it if they manually refreshed the browser or adjusted their search radius slider. Similarly, when an NGO claimed a donation, other NGOs viewing the same listing had no immediate indication that the food was gone until an attempted claim failed with `409 Conflict`. 
+
+Surplus food redistribution is highly time-sensitive: cooked meals spoil quickly, and volunteer drivers need immediate notifications. How should real-time synchronization be architected?
+
+### Options Considered
+1. **Short Polling (`setInterval` every 5–10s):**
+   - *Pros:* Simple to implement with standard REST endpoints.
+   - *Cons:* Wasteful network overhead (hundreds of redundant HTTP requests returning `304 Not Modified` or empty payloads); introduces an artificial 5–10 second delay.
+2. **Server-Sent Events (SSE):**
+   - *Pros:* Built into browsers over HTTP; lightweight for one-way server-to-client streaming.
+   - *Cons:* Strictly unidirectional; requires a separate channel for client acknowledgments; lacks native room multiplexing.
+3. **Raw WebSockets:**
+   - *Pros:* Bi-directional, minimal TCP packet overhead.
+   - *Cons:* Lacks built-in reconnection mechanisms, fallback transports for restricted proxies, and room/channel abstraction.
+4. **Socket.IO (WebSocket abstraction with HTTP fallback):**
+   - *Pros:* Native room multiplexing (`io.to('ngos')`, `io.to('user:<id>')`), automatic reconnection with backoff, handshake authentication middleware, and fallback to HTTP long-polling if corporate firewalls block WebSockets.
+   - *Cons:* Requires matching `socket.io-client` on the frontend; requires separate CORS configuration.
+
+### Decision
+Adopt **Socket.IO** with **JWT Handshake Authentication** and **Room Multiplexing**.
+
+### Technical Architecture
+1. **Handshake Authentication:**
+   Clients transmit their JWT in the connection handshake: `io(url, { auth: { token } })`. Socket middleware intercepts the handshake, verifies the token cryptographically via `process.env.JWT_SECRET`, checks user existence in MongoDB, and stores `{ id, role }` in `socket.data.user`. Unauthenticated connections are rejected before opening the socket.
+2. **Room Architecture:**
+   - `ngos`: Collective room joined by all authenticated NGO sockets. Receives `listing:new` when a donor posts food.
+   - `user:<id>`: Personal private room joined by each authenticated user across all their browser tabs/devices. Receives private status alerts.
+3. **Database as the Single Source of Truth:**
+   Events are emitted strictly **after** database operations succeed (`await Listing.create(...)`, `await Listing.findOneAndUpdate(...)`). Sockets serve as a speed optimization, not the source of truth.
+4. **Data Minimization & Privacy:**
+   When an NGO claims food, general NGOs in `ngos` receive a sanitized `listing:updated` event with `claimedBy` stripped out. Only the donor and the claiming NGO receive the full payload.
+5. **Reconnection & State Recovery:**
+   If a network drop occurs, Socket.IO re-establishes connection automatically. Upon `reconnect`, the client triggers an authoritative REST API re-fetch (`loadNearby()` / `loadListings()`) to ingest any events missed during disconnection.
+
+### Future Multi-Server Scaling (The Redis Adapter)
+Currently, AnnaSeva runs on a single server instance. When scaling horizontally across multiple Node.js processes or server instances, an event emitted on Server A does not reach users connected to Server B. The standard solution is the **Socket.IO Redis Streams / Pub-Sub Adapter**, where server instances broadcast events to a central Redis channel that fans out messages to all cluster nodes, coupled with sticky sessions on the load balancer for polling fallbacks. This is documented for future scaling and is not required for the current single-instance deployment.
