@@ -11,3 +11,4 @@ export function getErrorMessage(err) {
   }
   return data?.message || err.message || 'Something went wrong';
 }
+
