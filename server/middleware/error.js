@@ -7,7 +7,7 @@
 export const notFound = (req, res, next) => {
   res.status(404).json({
     status: 'fail',
-    message: `Cannot find ${req.method} ${req.originalUrl} on this server`,
+    message: `Not found: Cannot find ${req.method} ${req.originalUrl} on this server`,
   });
 };
 
