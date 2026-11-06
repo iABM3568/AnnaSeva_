@@ -1,7 +1,12 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Listing from '../models/Listing.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 // Center coordinates for demo listings (Pune city center)
 const CENTER = { lat: 18.5204, lng: 73.8567 };
