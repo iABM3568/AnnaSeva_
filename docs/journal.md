@@ -61,3 +61,25 @@
 #### Q9: What is node_modules, and why don't we commit it to Git?
 *Your Notes:*
 
+
+
+---
+
+## Day 2: Users, Authentication & Authorization
+
+### 1. Concepts Learned & Solidified
+- **Password Hashing with Bcrypt:** Plaintext passwords must never touch database storage. Bcrypt combines salting with adaptive cost factors (cost 12 = 4096 rounds) to prevent rainbow table and brute-force attacks.
+- **Mongoose Hooks & Instance Methods:** Pre-save hooks automatically hash passwords when `this.isModified('password')` evaluates to true. Document methods (`comparePassword`) encapsulate credential validation directly on the model.
+- **Multi-layered Validation:** Zod enforces schema constraints at the API entrance (`validate` middleware); Mongoose enforces schema integrity at the database layer.
+- **Mass Assignment Prevention:** Using `req.valid` instead of `req.body` prevents clients from injecting unauthorized attributes (e.g., `isAdmin: true` or malicious role assignments).
+- **Stateless Authentication (JWT):** A signed JSON Web Token carries identity claims (`id`, `role`) cryptographically verified by the server using `JWT_SECRET` without requiring server-side session storage.
+- **Middleware Guard Execution Order:** Authentication (`protect`) verifies *who the user is*; Authorization (`restrictTo`) enforces *what the user can do*. `protect` must strictly precede `restrictTo`.
+- **Centralized Error Architecture:** Express 5 automatically bubbles async rejections into the 4-argument error-handling middleware, formatting syntax errors, Mongoose validations, duplicate keys, and internal faults into consistent JSON.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **`select: false` on password** | Eliminates accidental password leakage in queries. | Requires explicit `.select('+password')` in login controller. |
+| **`req.valid` pattern** | Guarantees controller logic only operates on verified and sanitized data. | Requires accessing `req.valid` instead of standard `req.body`. |
+| **Generic 401 response for login** | Prevents user enumeration attacks (attacker cannot distinguish between bad email vs bad password). | Slightly less descriptive feedback for legitimate forgetful users. |
+| **Bearer token in `localStorage` (ADR 001)** | Easiest starting point for beginner developer frontend integration. | Vulnerable to XSS compared to `httpOnly` cookies; scheduled for production hardening. |

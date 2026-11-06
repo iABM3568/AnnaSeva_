@@ -1,0 +1,173 @@
+{
+  "clientName": "Thunder Client",
+  "collectionName": "FoodBridge",
+  "collectionId": "foodbridge-day2-auth",
+  "dateExported": "2026-11-06",
+  "version": "1.1",
+  "folders": [],
+  "requests": [
+    {
+      "_id": "req-1",
+      "colId": "foodbridge-day2-auth",
+      "name": "01 - Register Donor (Valid)",
+      "url": "http://localhost:5000/api/auth/register",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Grand Palace Caterers\",\n  \"email\": \"donor@grandpalace.com\",\n  \"password\": \"SecretPass123!\",\n  \"role\": \"donor\",\n  \"organization\": \"Grand Palace Hospitality\"\n}"
+      }
+    },
+    {
+      "_id": "req-2",
+      "colId": "foodbridge-day2-auth",
+      "name": "02 - Register Duplicate Email (Expect 409)",
+      "url": "http://localhost:5000/api/auth/register",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Grand Palace Caterers\",\n  \"email\": \"donor@grandpalace.com\",\n  \"password\": \"SecretPass123!\",\n  \"role\": \"donor\"\n}"
+      }
+    },
+    {
+      "_id": "req-3",
+      "colId": "foodbridge-day2-auth",
+      "name": "03 - Register Short Password (Expect 400)",
+      "url": "http://localhost:5000/api/auth/register",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Valid Name\",\n  \"email\": \"shortpw@example.com\",\n  \"password\": \"1234567\",\n  \"role\": \"donor\"\n}"
+      }
+    },
+    {
+      "_id": "req-4",
+      "colId": "foodbridge-day2-auth",
+      "name": "04 - Register Role Admin (Expect 400)",
+      "url": "http://localhost:5000/api/auth/register",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"hacker@admin.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"admin\"\n}"
+      }
+    },
+    {
+      "_id": "req-5",
+      "colId": "foodbridge-day2-auth",
+      "name": "05 - Register Extra Field isAdmin (Expect 201, ignored)",
+      "url": "http://localhost:5000/api/auth/register",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"name\": \"NGO Care\",\n  \"email\": \"ngo@feedinghands.org\",\n  \"password\": \"SafePass123!\",\n  \"role\": \"ngo\",\n  \"isAdmin\": true\n}"
+      }
+    },
+    {
+      "_id": "req-6",
+      "colId": "foodbridge-day2-auth",
+      "name": "06 - Login Correct Credentials (Expect 200)",
+      "url": "http://localhost:5000/api/auth/login",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"donor@grandpalace.com\",\n  \"password\": \"SecretPass123!\"\n}"
+      }
+    },
+    {
+      "_id": "req-7",
+      "colId": "foodbridge-day2-auth",
+      "name": "07 - Login Incorrect Password (Expect 401)",
+      "url": "http://localhost:5000/api/auth/login",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"donor@grandpalace.com\",\n  \"password\": \"WrongPassword!\"\n}"
+      }
+    },
+    {
+      "_id": "req-8",
+      "colId": "foodbridge-day2-auth",
+      "name": "08 - Login Unknown Email (Expect 401)",
+      "url": "http://localhost:5000/api/auth/login",
+      "method": "POST",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "type": "json",
+        "raw": "{\n  \"email\": \"ghost@unknown.com\",\n  \"password\": \"AnyPassword123!\"\n}"
+      }
+    },
+    {
+      "_id": "req-9",
+      "colId": "foodbridge-day2-auth",
+      "name": "09 - GET /me Without Token (Expect 401)",
+      "url": "http://localhost:5000/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "_id": "req-10",
+      "colId": "foodbridge-day2-auth",
+      "name": "10 - GET /me With Valid Token (Expect 200)",
+      "url": "http://localhost:5000/api/auth/me",
+      "method": "GET",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    },
+    {
+      "_id": "req-11",
+      "colId": "foodbridge-day2-auth",
+      "name": "11 - GET /me With Tampered Token (Expect 401)",
+      "url": "http://localhost:5000/api/auth/me",
+      "method": "GET",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer tampered.fake.token" }
+      ]
+    },
+    {
+      "_id": "req-12",
+      "colId": "foodbridge-day2-auth",
+      "name": "12 - Inspect JWT Payload (Client Utility)",
+      "url": "http://localhost:5000/api/health",
+      "method": "GET"
+    },
+    {
+      "_id": "req-13",
+      "colId": "foodbridge-day2-auth",
+      "name": "13 - Health Check (Preserved Day 1)",
+      "url": "http://localhost:5000/api/health",
+      "method": "GET"
+    },
+    {
+      "_id": "req-14",
+      "colId": "foodbridge-day2-auth",
+      "name": "14 - Role Authorization Guard (Donor Only)",
+      "url": "http://localhost:5000/api/auth/test-donor",
+      "method": "GET",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{token}}" }
+      ]
+    }
+  ]
+}
