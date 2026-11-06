@@ -60,26 +60,18 @@ const userSchema = new mongoose.Schema(
 // Pre-save Hook — runs automatically BEFORE a document is saved
 // ---------------------------------------------------------------------------
 // WHY: We must NEVER store a plaintext password in the database.
-//      If someone breaches the database, they'd see every user's password.
 //      Instead we store a one-way hash: "password123" → "$2a$12$xK9z..."
-//      You can verify a guess against the hash, but you CANNOT reverse
-//      the hash back to the original password.
 //
-// IMPORTANT: We check `this.isModified('password')` because this hook
-//      runs on EVERY save — including when we update a user's name.
-//      Without this guard, we'd hash the ALREADY-hashed password again,
-//      making login impossible.
+// NOTE (Mongoose 9): In async pre hooks, Mongoose awaits the returned
+// promise. Do NOT declare or call `next()`.
 // ---------------------------------------------------------------------------
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   // Only hash if the password field was created or changed
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) return;
 
   // Cost factor 12 = 2^12 = 4096 rounds of hashing.
-  // Higher = slower to crack, but also slower to register/login.
-  // 12 is the current industry recommendation for bcrypt.
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // ---------------------------------------------------------------------------
@@ -89,9 +81,6 @@ userSchema.pre('save', async function (next) {
 // WHO CALLS IT: The login controller — after finding a user by email,
 //      it calls user.comparePassword(submittedPassword).
 // RETURNS: true if the password matches, false otherwise.
-//
-// NOTE: bcrypt.compare handles the salt internally — you don't
-//      need to extract or pass the salt separately.
 // ---------------------------------------------------------------------------
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
@@ -103,7 +92,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 // When Express calls res.json(user), Mongoose calls toJSON() internally.
 // We remove `password` and `__v` (Mongoose version key) so they never
 // appear in API responses, even if a developer forgets `select: false`.
-// This is a safety net — defense in depth.
 // ---------------------------------------------------------------------------
 userSchema.set('toJSON', {
   transform(_doc, ret) {
@@ -116,4 +104,3 @@ userSchema.set('toJSON', {
 const User = mongoose.model('User', userSchema);
 
 export default User;
-
