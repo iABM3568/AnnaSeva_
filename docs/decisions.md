@@ -27,3 +27,37 @@ We adopt **`localStorage`** for the initial learning and development implementat
 ### Future Production Roadmap
 Before deploying to production with real donor and NGO data, we will review migrating token delivery to secure `httpOnly` cookies with `SameSite=Strict` or `SameSite=Lax`.
 
+
+
+---
+
+## ADR 002: Reference Donor by ObjectId Instead of Embedding (Day 3)
+
+### Context & Problem Statement
+Every food listing must be associated with the donor who published it. Should we embed the donor's profile (name, organization, contact info) directly inside each listing document, or reference the donor's `_id` and use Mongoose `populate()` when needed?
+
+### Decision
+Store `donor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }` as a reference.
+
+### Rationale
+- **Single Source of Truth:** If a restaurant or catering partner updates their organization name, address, or phone number, all past and active listings remain immediately accurate without requiring cascading document updates across thousands of listings.
+- **Document Size & Write Performance:** Keeps listing documents compact, reducing MongoDB memory footprint and disk I/O.
+- **Controlled Information Disclosure:** `populate('donor', 'name organization')` allows us to explicitly pick which donor fields to expose to NGOs, preventing accidental leakage of sensitive donor account details.
+
+### Trade-offs Considered
+- **Read Overhead:** Referencing requires an extra query lookup behind the scenes during `populate()`. However, with a target MVP volume of ~1 request every 8 seconds, this overhead is negligible compared to the data integrity advantages.
+
+---
+
+## ADR 003: Expiry Computed Dynamically Instead of Stored as Mutable Status (Day 3)
+
+### Context & Problem Statement
+Food has a strict expiration deadline (`expiresAt`). Should the system store an `'expired'` status in the document and use a background cron job to periodically find and update expired food, or compute expiration dynamically at query time?
+
+### Decision
+Do **not** store an `'expired'` status. Derive food availability dynamically at query time using `{ expiresAt: { $gt: new Date() } }`.
+
+### Rationale
+- **Eliminates Background Schedulers & Latency Gaps:** A cron job running every 5 or 15 minutes creates a "stale window" where expired food is still visible to NGOs before the next cron tick runs. Query-time filtering ensures 100% real-time accuracy based on the server's clock.
+- **Operational Simplicity:** Eliminates the architectural complexity and failure modes of background worker processes, distributed cron locks, and Redis queues during early stages.
+- **Historical Reporting Integrity:** Listings retain their operational lifecycle state (`available`, `claimed`, `completed`, `cancelled`) without being overwritten by an `'expired'` status, allowing accurate analytics on claim conversion rates and expiration loss.

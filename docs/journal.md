@@ -83,3 +83,24 @@
 | **`req.valid` pattern** | Guarantees controller logic only operates on verified and sanitized data. | Requires accessing `req.valid` instead of standard `req.body`. |
 | **Generic 401 response for login** | Prevents user enumeration attacks (attacker cannot distinguish between bad email vs bad password). | Slightly less descriptive feedback for legitimate forgetful users. |
 | **Bearer token in `localStorage` (ADR 001)** | Easiest starting point for beginner developer frontend integration. | Vulnerable to XSS compared to `httpOnly` cookies; scheduled for production hardening. |
+
+
+---
+
+## Day 3: Listings & Geospatial API
+
+### 1. Concepts Learned & Solidified
+- **GeoJSON Standard:** Coordinates are stored as `[longitude, latitude]` (East/West first, then North/South). Inverting them places geographic coordinates in the wrong hemisphere or ocean.
+- **Spherical Geometry & `2dsphere` Index:** A `2dsphere` index computes distances across the curved surface of the Earth using the WGS84 datum. Without this index, MongoDB immediately rejects `$near` queries.
+- **Database-Driven Geospatial Filtering:** Using `$near` and `$maxDistance` (in meters) sorts search results from nearest to farthest directly in the database engine, avoiding in-memory JavaScript sorting.
+- **Computed Expiry:** Food freshness is computed on-the-fly (`expiresAt > new Date()`) rather than mutated by scheduled background cron jobs.
+- **IDOR Defense (Insecure Direct Object Reference):** Resource ownership is strictly enforced in database filters (`{ donor: req.user.id }`), preventing users from accessing or modifying resources belonging to other accounts.
+- **Performance Optimization with `.lean()`:** Omitting Mongoose document hydration for read-only nearby queries provides higher throughput and lower memory consumption.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Referencing Donor by ObjectId (ADR 002)** | Single source of truth. Updates to donor profiles reflect across all listings automatically. | Requires explicit `populate()` query lookup when reading donor details. |
+| **Dynamic Computed Expiry (ADR 003)** | 100% real-time accuracy based on server clock without cron delays or worker thread overhead. | Cannot index a dynamically changing date inequality without querying on `expiresAt`. |
+| **Max 24-Hour Listing Window** | Enforces food safety policy — cooked surplus food spoils rapidly. | Long shelf-life non-perishables (canned goods) cannot be listed for multiple days (future feature). |
+| **`limit(50)` on Nearby Search** | Defends against unbounded result sets and Denial of Service. | NGOs must use smaller search radii if more than 50 listings exist in their area. |
