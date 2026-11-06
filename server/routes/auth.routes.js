@@ -18,3 +18,4 @@ router.post('/login', validate(loginSchema), login);
 router.get('/me', protect, getMe);
 
 export default router;
+

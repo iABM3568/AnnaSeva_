@@ -26,3 +26,4 @@ We adopt **`localStorage`** for the initial learning and development implementat
 
 ### Future Production Roadmap
 Before deploying to production with real donor and NGO data, we will review migrating token delivery to secure `httpOnly` cookies with `SameSite=Strict` or `SameSite=Lax`.
+
