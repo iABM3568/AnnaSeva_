@@ -1,16 +1,37 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errors';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Controlled inputs: React state is the single source of truth for input values
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-login support for automated demo screenshots / presentations (e.g. /login?auto=donor)
+  useEffect(() => {
+    const autoRole = searchParams.get('auto');
+    const redirectUrl = searchParams.get('redirect');
+    if (autoRole === 'donor' || autoRole === 'ngo') {
+      const email = autoRole === 'donor' ? 'donor.demo@example.com' : 'ngo.demo@example.com';
+      const password = 'Demo@12345';
+      setForm({ email, password });
+      setSubmitting(true);
+      login(email, password)
+        .then((user) => {
+          navigate(redirectUrl || (user.role === 'donor' ? '/donor' : '/ngo'), { replace: true });
+        })
+        .catch((err) => {
+          setError(getErrorMessage(err));
+          setSubmitting(false);
+        });
+    }
+  }, [searchParams, login, navigate]);
 
   // Single handler for form fields using e.target.name
   function handleChange(e) {
@@ -89,6 +110,27 @@ export default function Login() {
             {submitting ? 'Logging in...' : 'Log in'}
           </button>
         </form>
+
+        {/* Quick-fill demo credentials helper for evaluators */}
+        <div className="mt-5 pt-4 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-500 text-center mb-2">Quick Demo Logins (Click to Fill):</p>
+          <div className="flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setForm({ email: 'donor.demo@example.com', password: 'Demo@12345' })}
+              className="px-2.5 py-1 text-xs rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+            >
+              🌱 Demo Donor
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm({ email: 'ngo.demo@example.com', password: 'Demo@12345' })}
+              className="px-2.5 py-1 text-xs rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition"
+            >
+              🤝 Demo NGO
+            </button>
+          </div>
+        </div>
 
         <p className="mt-6 text-center text-sm text-gray-600">
           New to AnnaSeva?{' '}
