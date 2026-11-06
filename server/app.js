@@ -11,7 +11,19 @@ const app = express();
 // GLOBAL MIDDLEWARE
 // ---------------------------------------------------------------------------
 // 1. CORS: allow requests from specified frontend client origin
-app.use(cors({ origin: process.env.CLIENT_URL }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const allowed = process.env.CLIENT_URL || 'http://localhost:5173';
+      // Allow non-browser callers (Thunder Client, curl) or matching client origin
+      if (!origin || origin === allowed) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 
 // 2. Body Parser: parses incoming JSON bodies and attaches to req.body
 app.use(express.json());
