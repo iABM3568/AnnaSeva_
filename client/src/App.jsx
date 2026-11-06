@@ -5,6 +5,7 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DonorDashboard from './pages/DonorDashboard';
+import NewListing from './pages/NewListing';
 import NgoNearby from './pages/NgoNearby';
 import NotFound from './pages/NotFound';
 
@@ -24,6 +25,14 @@ export default function App() {
             element={
               <ProtectedRoute role="donor">
                 <DonorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/donor/new"
+            element={
+              <ProtectedRoute role="donor">
+                <NewListing />
               </ProtectedRoute>
             }
           />
