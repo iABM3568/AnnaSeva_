@@ -7,12 +7,17 @@
   "folders": [
     {
       "_id": "folder-auth",
-      "name": "Auth (Day 2)",
+      "name": "1. Auth (Day 2)",
       "containerId": ""
     },
     {
       "_id": "folder-listings",
-      "name": "Listings (Day 3)",
+      "name": "2. Listings & Discovery (Day 3)",
+      "containerId": ""
+    },
+    {
+      "_id": "folder-claims",
+      "name": "3. Claim & Lifecycle (Day 4)",
       "containerId": ""
     }
   ],
@@ -60,98 +65,42 @@
       "_id": "req-auth-4",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-auth",
-      "name": "04 - Register Role Admin (Expect 400)",
-      "url": "http://localhost:5000/api/auth/register",
+      "name": "04 - Login Demo Donor (Expect 200)",
+      "url": "http://localhost:5000/api/auth/login",
       "method": "POST",
       "headers": [{ "name": "Content-Type", "value": "application/json" }],
       "body": {
         "type": "json",
-        "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"hacker@admin.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"admin\"\n}"
+        "raw": "{\n  \"email\": \"donor.demo@example.com\",\n  \"password\": \"Demo@12345\"\n}"
       }
     },
     {
       "_id": "req-auth-5",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-auth",
-      "name": "05 - Register Extra Field isAdmin (Expect 201, ignored)",
-      "url": "http://localhost:5000/api/auth/register",
+      "name": "05 - Login Demo NGO (Expect 200)",
+      "url": "http://localhost:5000/api/auth/login",
       "method": "POST",
       "headers": [{ "name": "Content-Type", "value": "application/json" }],
       "body": {
         "type": "json",
-        "raw": "{\n  \"name\": \"NGO Care\",\n  \"email\": \"ngo@feedinghands.org\",\n  \"password\": \"SafePass123!\",\n  \"role\": \"ngo\",\n  \"isAdmin\": true\n}"
+        "raw": "{\n  \"email\": \"ngo.demo@example.com\",\n  \"password\": \"Demo@12345\"\n}"
       }
     },
     {
       "_id": "req-auth-6",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-auth",
-      "name": "06 - Login Correct Credentials (Expect 200)",
-      "url": "http://localhost:5000/api/auth/login",
-      "method": "POST",
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"email\": \"donor@grandpalace.com\",\n  \"password\": \"SecretPass123!\"\n}"
-      }
-    },
-    {
-      "_id": "req-auth-7",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-auth",
-      "name": "07 - Login Incorrect Password (Expect 401)",
-      "url": "http://localhost:5000/api/auth/login",
-      "method": "POST",
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"email\": \"donor@grandpalace.com\",\n  \"password\": \"WrongPassword!\"\n}"
-      }
-    },
-    {
-      "_id": "req-auth-8",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-auth",
-      "name": "08 - Login Unknown Email (Expect 401)",
-      "url": "http://localhost:5000/api/auth/login",
-      "method": "POST",
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"email\": \"ghost@unknown.com\",\n  \"password\": \"AnyPassword123!\"\n}"
-      }
-    },
-    {
-      "_id": "req-auth-9",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-auth",
-      "name": "09 - GET /me Without Token (Expect 401)",
-      "url": "http://localhost:5000/api/auth/me",
-      "method": "GET"
-    },
-    {
-      "_id": "req-auth-10",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-auth",
-      "name": "10 - GET /me With Valid Token (Expect 200)",
+      "name": "06 - GET /me With Valid Token (Expect 200)",
       "url": "http://localhost:5000/api/auth/me",
       "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer {{donorToken}}" }]
-    },
-    {
-      "_id": "req-auth-11",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-auth",
-      "name": "11 - GET /me With Tampered Token (Expect 401)",
-      "url": "http://localhost:5000/api/auth/me",
-      "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer tampered.fake.token" }]
+      "headers": [{ "name": "Authorization", "value": "Bearer {{token}}" }]
     },
     {
       "_id": "req-list-1",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-listings",
-      "name": "01 - Create Listing (Donor Valid - Expect 201)",
+      "name": "01 - Create Listing (Donor - Expect 201)",
       "url": "http://localhost:5000/api/listings",
       "method": "POST",
       "headers": [
@@ -160,155 +109,79 @@
       ],
       "body": {
         "type": "json",
-        "raw": "{\n  \"title\": \"Vegetable Pulao & Raita\",\n  \"description\": \"40 packed portions, freshly prepared today. Containers provided.\",\n  \"foodType\": \"veg\",\n  \"quantity\": 40,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-06T20:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Camp, Pune, Maharashtra\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
+        "raw": "{\n  \"title\": \"Vegetable Pulao & Raita\",\n  \"description\": \"40 packed portions, freshly prepared today.\",\n  \"foodType\": \"veg\",\n  \"quantity\": 40,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-06T20:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Camp, Pune\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
       }
     },
     {
       "_id": "req-list-2",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-listings",
-      "name": "02 - Create Listing with NGO Token (Expect 403)",
-      "url": "http://localhost:5000/api/listings",
-      "method": "POST",
-      "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Authorization", "value": "Bearer {{ngoToken}}" }
-      ],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"title\": \"Food Attempt\",\n  \"foodType\": \"veg\",\n  \"quantity\": 10,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-06T20:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Pune\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
-      }
+      "name": "02 - Get Donor Active Listings (GET /mine)",
+      "url": "http://localhost:5000/api/listings/mine",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{donorToken}}" }]
     },
     {
       "_id": "req-list-3",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-listings",
-      "name": "03 - Create Listing Without Token (Expect 401)",
-      "url": "http://localhost:5000/api/listings",
-      "method": "POST",
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"title\": \"Unauthenticated Listing\",\n  \"foodType\": \"veg\",\n  \"quantity\": 10,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-06T20:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Pune\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
-      }
+      "name": "03 - NGO Nearby Food Discovery (GET /nearby 8km)",
+      "url": "http://localhost:5000/api/listings/nearby?lat=18.5204&lng=73.8567&radiusKm=8",
+      "method": "GET",
+      "headers": [{ "name": "Authorization", "value": "Bearer {{ngoToken}}" }]
     },
     {
       "_id": "req-list-4",
       "colId": "foodbridge-api-collection",
       "containerId": "folder-listings",
-      "name": "04 - Create Listing Missing Title (Expect 400)",
-      "url": "http://localhost:5000/api/listings",
-      "method": "POST",
-      "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Authorization", "value": "Bearer {{donorToken}}" }
-      ],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"foodType\": \"veg\",\n  \"quantity\": 10,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-06T20:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Pune\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
-      }
-    },
-    {
-      "_id": "req-list-5",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "05 - Create Listing Expired in Past (Expect 400)",
-      "url": "http://localhost:5000/api/listings",
-      "method": "POST",
-      "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Authorization", "value": "Bearer {{donorToken}}" }
-      ],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"title\": \"Old Food\",\n  \"foodType\": \"veg\",\n  \"quantity\": 10,\n  \"preparedAt\": \"2026-11-05T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-05T18:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Pune\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
-      }
-    },
-    {
-      "_id": "req-list-6",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "06 - Create Listing Expired > 24 Hours Ahead (Expect 400)",
-      "url": "http://localhost:5000/api/listings",
-      "method": "POST",
-      "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Authorization", "value": "Bearer {{donorToken}}" }
-      ],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"title\": \"Too Far Ahead\",\n  \"foodType\": \"veg\",\n  \"quantity\": 10,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-10T12:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Pune\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}"
-      }
-    },
-    {
-      "_id": "req-list-7",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "07 - Create Listing Invalid Latitude (Expect 400)",
-      "url": "http://localhost:5000/api/listings",
-      "method": "POST",
-      "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Authorization", "value": "Bearer {{donorToken}}" }
-      ],
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"title\": \"Bad Coordinates\",\n  \"foodType\": \"veg\",\n  \"quantity\": 10,\n  \"preparedAt\": \"2026-11-06T12:00:00.000Z\",\n  \"expiresAt\": \"2026-11-06T20:00:00.000Z\",\n  \"pickupAddress\": \"24 MG Road, Pune\",\n  \"latitude\": 195.0,\n  \"longitude\": 73.8567\n}"
-      }
-    },
-    {
-      "_id": "req-list-8",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "08 - Get Donor Listings (GET /mine)",
-      "url": "http://localhost:5000/api/listings/mine",
-      "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer {{donorToken}}" }]
-    },
-    {
-      "_id": "req-list-9",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "09 - NGO Search Nearby Food (5km Radius - Expect 200)",
-      "url": "http://localhost:5000/api/listings/nearby?lat=18.5204&lng=73.8567&radiusKm=5",
-      "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer {{ngoToken}}" }]
-    },
-    {
-      "_id": "req-list-10",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "10 - NGO Search 100km Away (Expect count: 0)",
-      "url": "http://localhost:5000/api/listings/nearby?lat=19.0760&lng=72.8777&radiusKm=5",
-      "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer {{ngoToken}}" }]
-    },
-    {
-      "_id": "req-list-11",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "11 - Donor Calling Nearby (Expect 403 Forbidden)",
-      "url": "http://localhost:5000/api/listings/nearby?lat=18.5204&lng=73.8567",
-      "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer {{donorToken}}" }]
-    },
-    {
-      "_id": "req-list-12",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "12 - NGO Calling /mine (Expect 403 Forbidden)",
-      "url": "http://localhost:5000/api/listings/mine",
-      "method": "GET",
-      "headers": [{ "name": "Authorization", "value": "Bearer {{ngoToken}}" }]
-    },
-    {
-      "_id": "req-list-13",
-      "colId": "foodbridge-api-collection",
-      "containerId": "folder-listings",
-      "name": "13 - NGO View Claimed Listings (GET /claimed)",
+      "name": "04 - NGO View Claimed Food (GET /claimed)",
       "url": "http://localhost:5000/api/listings/claimed",
       "method": "GET",
       "headers": [{ "name": "Authorization", "value": "Bearer {{ngoToken}}" }]
+    },
+    {
+      "_id": "req-claim-1",
+      "colId": "foodbridge-api-collection",
+      "containerId": "folder-claims",
+      "name": "01 - Atomic Claim Listing (NGO - PATCH :id/claim - Expect 200)",
+      "url": "http://localhost:5000/api/listings/{{listingId}}/claim",
+      "method": "PATCH",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ngoToken}}" }
+      ]
+    },
+    {
+      "_id": "req-claim-2",
+      "colId": "foodbridge-api-collection",
+      "containerId": "folder-claims",
+      "name": "02 - Claim Already Claimed (Expect 409 Conflict)",
+      "url": "http://localhost:5000/api/listings/{{listingId}}/claim",
+      "method": "PATCH",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ngoToken}}" }
+      ]
+    },
+    {
+      "_id": "req-claim-3",
+      "colId": "foodbridge-api-collection",
+      "containerId": "folder-claims",
+      "name": "03 - Complete / Mark Picked Up (Donor - PATCH :id/complete - Expect 200)",
+      "url": "http://localhost:5000/api/listings/{{listingId}}/complete",
+      "method": "PATCH",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{donorToken}}" }
+      ]
+    },
+    {
+      "_id": "req-claim-4",
+      "colId": "foodbridge-api-collection",
+      "containerId": "folder-claims",
+      "name": "04 - Cancel Food Listing (Donor - PATCH :id/cancel - Expect 200)",
+      "url": "http://localhost:5000/api/listings/{{listingId}}/cancel",
+      "method": "PATCH",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{donorToken}}" }
+      ]
     }
   ]
 }

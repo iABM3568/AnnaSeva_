@@ -104,3 +104,34 @@
 | **Dynamic Computed Expiry (ADR 003)** | 100% real-time accuracy based on server clock without cron delays or worker thread overhead. | Cannot index a dynamically changing date inequality without querying on `expiresAt`. |
 | **Max 24-Hour Listing Window** | Enforces food safety policy — cooked surplus food spoils rapidly. | Long shelf-life non-perishables (canned goods) cannot be listed for multiple days (future feature). |
 | **`limit(50)` on Nearby Search** | Defends against unbounded result sets and Denial of Service. | NGOs must use smaller search radii if more than 50 listings exist in their area. |
+
+
+---
+
+## Day 4: The Claim System & System-Design Lab
+
+### 1. Concepts Learned & Solidified
+- **Race Conditions:** Occur when system behavior depends on the uncontrollable timing of concurrent operations. The classic "check-then-update" bug allows multiple clients to read `available` and subsequently claim the same single resource.
+- **Atomic Operations in MongoDB:** `findOneAndUpdate` performs matching and updating as an indivisible operation at the document level. Concurrent requests are evaluated sequentially; once the first request updates `status` to `'claimed'`, all competing requests fail to match the query guard and receive a clean `409 Conflict`.
+- **Status State Machine & Transitions:**
+  - `available` $\to$ `claimed` (by NGO)
+  - `claimed` $\to$ `completed` (by Donor upon physical pickup)
+  - `available` or `claimed` $\to$ `cancelled` (by Donor if plans change)
+  - `completed` and `cancelled` are terminal states (no further transitions permitted).
+- **Status Code Precision (404 vs 409 vs 403 vs 400):**
+  - `400 Bad Request`: Malformed or syntactically invalid input (caught by `validateId`).
+  - `401 Unauthorized`: Missing, expired, or invalid JWT token.
+  - `403 Forbidden`: Authenticated user lacks role permissions (e.g., Donor attempting to call `PATCH /claim`).
+  - `404 Not Found`: Listing does not exist, or does not belong to the calling donor (prevents IDOR existence leakage).
+  - `409 Conflict`: Listing exists, but its current state prevents the requested transition (e.g. already claimed or completed).
+- **Execution Plans & Index Profiling:**
+  - `IXSCAN` (Index Scan): The query engine traverses the B-tree index, examining only the documents that match the target key.
+  - `COLLSCAN` (Collection Scan): The database reads every single document in the collection.
+  - In our benchmark lab: Searching without an index examined 3,016 documents to return 15; searching with `{ donor: 1, createdAt: -1 }` examined exactly 15 documents.
+
+### 2. Architectural Decisions Made Today
+| Decision | Rationale | Trade-offs Considered |
+|---|---|---|
+| **Atomic `findOneAndUpdate` (ADR 004)** | Eliminates race conditions with zero external locking mechanisms or distributed mutexes. | Direct updates skip Mongoose schema validators (safe here since update fields are server literals). |
+| **Silent 404 on Foreign Resource Updates** | Prevents competitors from confirming whether a private listing exists. | Callers get generic "Not Found" instead of specific "Not Your Listing". |
+| **Development Seeding Utility (`seed.js`)** | Generates realistic, geographically dispersed listings with known demo accounts for testing. | Must be guarded against running on production databases (`_dev` suffix check). |

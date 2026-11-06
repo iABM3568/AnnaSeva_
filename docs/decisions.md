@@ -61,3 +61,29 @@ Do **not** store an `'expired'` status. Derive food availability dynamically at 
 - **Eliminates Background Schedulers & Latency Gaps:** A cron job running every 5 or 15 minutes creates a "stale window" where expired food is still visible to NGOs before the next cron tick runs. Query-time filtering ensures 100% real-time accuracy based on the server's clock.
 - **Operational Simplicity:** Eliminates the architectural complexity and failure modes of background worker processes, distributed cron locks, and Redis queues during early stages.
 - **Historical Reporting Integrity:** Listings retain their operational lifecycle state (`available`, `claimed`, `completed`, `cancelled`) without being overwritten by an `'expired'` status, allowing accurate analytics on claim conversion rates and expiration loss.
+
+
+---
+
+## ADR 004: Atomic Claim State Transition via `findOneAndUpdate` (Day 4)
+
+### Context & Problem Statement
+When high-demand surplus food listings appear, multiple NGOs may simultaneously view and click "Claim". If the application reads the listing to check availability (`status === 'available'`) and subsequently issues an update (`listing.save()`), a race condition occurs: between the read and the save, multiple concurrent requests pass the check, resulting in a single listing being double- or triple-claimed by different NGOs.
+
+### Decision
+Enforce state transitions using an atomic single-operation query:
+```javascript
+await Listing.findOneAndUpdate(
+  { _id: id, status: 'available', expiresAt: { $gt: new Date() } },
+  { status: 'claimed', claimedBy: req.user.id, claimedAt: new Date() },
+  { returnDocument: 'after' }
+);
+```
+
+### Rationale
+- **Atomic Concurrency Guarantee:** In MongoDB, document-level updates are atomic. Even under high concurrency (verified via 20 simultaneous requests), the database processes writes sequentially; exactly **one** request matches the `{ status: 'available' }` guard, while the remaining 19 fail to match and receive a `409 Conflict`.
+- **Zero Double-Allocation:** Guarantees that an NGO will never travel to collect food that was promised to another organization.
+- **Privacy & IDOR Protection:** If an update fails, a scoped existence check (`Listing.exists({ _id, donor: req.user.id })`) returns `404 Not Found` for unauthorized or foreign documents, preventing attackers from confirming the existence of competitor listings.
+
+### Trade-offs Considered
+- **Direct Update Bypasses Schema Validations by Default:** `findOneAndUpdate` does not invoke Mongoose document middleware or schema validators unless `{ runValidators: true }` is supplied. Because all update fields (`status: 'claimed'`, `claimedBy`, `claimedAt`) are server-controlled literals, this trade-off is completely safe.
